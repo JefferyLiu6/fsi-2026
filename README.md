@@ -62,7 +62,7 @@ flowchart LR
     DB[(SQLite via Prisma)]
   end
 
-  subgraph agent [Python Agent (Optional)]
+  subgraph agent [Python Agent — Optional]
     FASTAPI[FastAPI Service :8000]
     GEN[Generation Endpoint /generate]
     subgraph tutor [Tutor Graph (LangGraph)]
