@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id           String         @id @default(cuid())
+  email        String         @unique
+  name         String?
+  password     String
+  createdAt    DateTime       @default(now())
+  drillSessions DrillSession[]
+  customList   CustomList?
+  settings     UserSettings?
+}
+
+model DrillSession {
+  id        String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      Float
+  drillType String
+  language  String?
+  correct   Int
+  total     Int
+  accuracy  Int
+  avgTime   Float
+  results   String
+  createdAt DateTime @default(now())
+}
+
+model CustomList {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     String
+  updatedAt DateTime @updatedAt
+}
+
+model UserSettings {
+  userId   String @id
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  language String @default("es")
+}
