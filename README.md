@@ -65,7 +65,7 @@ flowchart LR
   subgraph agent [Python Agent — Optional]
     FASTAPI[FastAPI Service :8000]
     GEN[Generation Endpoint /generate]
-    subgraph tutor [Tutor Graph (LangGraph)]
+    subgraph tutor [Tutor Graph — LangGraph]
       ROUTER[Router Node]
       HINT[Hint]
       SOCRATIC[Socratic]
