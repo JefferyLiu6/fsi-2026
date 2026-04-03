@@ -1,25 +1,16 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { LANGUAGES } from '@/lib/drills'
-import type { Language } from '@/lib/drills'
-import { loadLanguage, loadSessions } from '@/lib/stats'
+import { loadSessions, resetDemoLocalState } from '@/lib/stats'
 
 export function Nav() {
   const path = usePathname()
-  const router = useRouter()
-  const [lang, setLang]   = useState<Language>('es')
-  const [user, setUser]   = useState<{ email: string; name?: string } | null>(null)
   const [streak, setStreak] = useState<number>(0)
+  const [isResetting, setIsResetting] = useState(false)
 
   useEffect(() => {
-    loadLanguage().then(l => setLang(l))
-    fetch('/api/auth/me').then(r => r.json()).then(data => {
-      if (data?.email) setUser({ email: data.email, name: data.name })
-      else setUser(null)
-    }).catch(() => {})
     loadSessions().then(sessions => {
       const DAY_MS  = 86_400_000
       const todayMs = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime() })()
@@ -31,16 +22,22 @@ export function Nav() {
     })
   }, [path])
 
-  const handleSignOut = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' })
-    setUser(null)
-    setStreak(0)
-    router.push('/login')
-    router.refresh()
-  }
+  const handleDemoReset = async () => {
+    if (isResetting) return
+    const ok = window.confirm('Reset demo data and clear rate limits?')
+    if (!ok) return
 
-  const displayName = user?.name ?? user?.email ?? ''
-  const truncated = displayName.length > 20 ? displayName.slice(0, 18) + '\u2026' : displayName
+    setIsResetting(true)
+    try {
+      await fetch('/api/demo/reset', { method: 'POST' })
+    } catch {
+      // Continue local reset even if server reset fails.
+    }
+
+    resetDemoLocalState()
+    setStreak(0)
+    window.location.href = '/'
+  }
 
   return (
     <nav
@@ -54,6 +51,7 @@ export function Nav() {
       }}
     >
       <div
+        className="mob-nav-pad"
         style={{
           maxWidth: 1200,
           margin: '0 auto',
@@ -66,7 +64,6 @@ export function Nav() {
       >
         {/* Wordmark */}
         <Link href="/" className="flex items-center gap-4 no-underline">
-          {/* Brand logo */}
           <div className="flex items-center gap-2">
             <svg
               width="24" height="24" viewBox="0 0 24 24"
@@ -80,25 +77,25 @@ export function Nav() {
               <rect x="21" y="12" width="3" height="8"  rx="1" />
             </svg>
             <span className="text-xl font-display font-bold text-gray-900 tracking-tighter">
-              FSI
+              LinguaFlow
             </span>
           </div>
-
         </Link>
 
-        {/* Nav links + user */}
+        {/* Nav links */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           {[
-            { href: '/drill', label: 'Train' },
-            { href: '/library', label: 'Library' },
-            { href: '/study', label: 'Study' },
-            { href: '/dashboard', label: 'Results' },
-          ].map(({ href, label }) => {
+            { href: '/drill',     label: 'Train',   mobileHide: false },
+            { href: '/library',   label: 'Library', mobileHide: true  },
+            { href: '/study',     label: 'Study',   mobileHide: true  },
+            { href: '/dashboard', label: 'Results', mobileHide: false },
+          ].map(({ href, label, mobileHide }) => {
             const active = path === href || path.startsWith(href + '/')
             return (
               <Link
                 key={href}
                 href={href}
+                className={mobileHide ? 'mob-hidden' : undefined}
                 style={{
                   fontFamily: 'var(--font-manrope), sans-serif',
                   fontWeight: 500,
@@ -140,6 +137,7 @@ export function Nav() {
                 {streak}
               </span>
               <span
+                className="mob-hidden"
                 style={{
                   fontFamily: 'var(--font-jetbrains), monospace',
                   fontSize: '0.5625rem',
@@ -154,41 +152,44 @@ export function Nav() {
             </div>
           )}
 
-          {user && (
-            <>
-              <span
-                style={{
-                  fontFamily: 'var(--font-manrope), sans-serif',
-                  fontSize: '0.75rem',
-                  color: 'var(--text-3)',
-                  padding: '0 8px',
-                  maxWidth: 160,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {truncated}
-              </span>
-              <button
-                onClick={handleSignOut}
-                style={{
-                  fontFamily: 'var(--font-manrope), sans-serif',
-                  fontWeight: 500,
-                  fontSize: '0.75rem',
-                  color: 'var(--text-2)',
-                  background: 'transparent',
-                  border: '1px solid var(--border)',
-                  borderRadius: 3,
-                  padding: '5px 10px',
-                  cursor: 'pointer',
-                  marginLeft: 4,
-                }}
-              >
-                Sign out
-              </button>
-            </>
-          )}
+          {/* Demo controls */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 12 }}>
+            <span
+              style={{
+                fontFamily: 'var(--font-jetbrains), monospace',
+                fontSize: '0.625rem',
+                letterSpacing: '0.10em',
+                textTransform: 'uppercase',
+                color: '#fff',
+                background: '#2DD4BF',
+                padding: '3px 8px',
+                borderRadius: 3,
+              }}
+            >
+              Demo
+            </span>
+            <button
+              onClick={handleDemoReset}
+              disabled={isResetting}
+              title="Reset demo state"
+              className="mob-hidden"
+              style={{
+                fontFamily: 'var(--font-jetbrains), monospace',
+                fontSize: '0.625rem',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color: 'var(--text-2)',
+                background: 'transparent',
+                border: '1px solid var(--border)',
+                padding: '3px 8px',
+                borderRadius: 3,
+                cursor: isResetting ? 'not-allowed' : 'pointer',
+                opacity: isResetting ? 0.6 : 1,
+              }}
+            >
+              {isResetting ? 'Resetting...' : 'Reset'}
+            </button>
+          </div>
         </div>
       </div>
     </nav>

@@ -1,5 +1,5 @@
 """
-FSI Drill Agent
+LinguaFlow Drill Agent
 ---------------
 FastAPI application with two isolated sub-systems:
 
@@ -13,17 +13,21 @@ Run:
     uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 """
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from config import OLLAMA_BASE
+from config import DEFAULT_MODEL, OLLAMA_BASE
 from generation import router as gen_router
+from providers import available_providers
 from tutor.graph import router as tutor_router
 
 # ── App ───────────────────────────────────────────────────────────────────────
 
-app = FastAPI(title="FSI Drill Agent", version="2.0.0")
+app = FastAPI(title="LinguaFlow Drill Agent", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -42,9 +46,11 @@ app.include_router(tutor_router)
 @app.get("/health")
 def health():
     return {
-        "status":       "ok",
-        "capabilities": ["generate", "tutor"],
-        "ollama":       OLLAMA_BASE,
+        "status":            "ok",
+        "capabilities":      ["generate", "tutor"],
+        "default_model":     DEFAULT_MODEL,
+        "providers":         available_providers(),
+        "ollama_base":       OLLAMA_BASE,
     }
 
 

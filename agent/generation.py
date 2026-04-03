@@ -1,5 +1,5 @@
 """
-FSI Drill Generation sub-system
+LinguaFlow Drill Generation sub-system
 --------------------------------
 Single-pass ChatOllama + JSON array extraction.  No LangGraph.
 Exposed as an APIRouter mounted at the app level in main.py.
@@ -13,10 +13,10 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_ollama import ChatOllama
 from pydantic import BaseModel, Field
 
-from config import DEFAULT_MODEL, OLLAMA_BASE
+from config import DEFAULT_MODEL
+from providers import get_llm
 
 router = APIRouter()
 
@@ -56,7 +56,7 @@ class GenerateResponse(BaseModel):
 
 # ── Prompts ───────────────────────────────────────────────────────────────────
 
-SYSTEM_PROMPT = """You are an FSI (Foreign Service Institute) language drill generator.
+SYSTEM_PROMPT = """You are a LinguaFlow language drill generator.
 Output ONLY a valid JSON array — no markdown fences, no explanation, no preamble.
 Each object must have exactly these fields:
   "prompt"      : string  — the English cue shown to the learner
@@ -121,13 +121,15 @@ async def generate_drills(req: GenerateRequest):
         raise HTTPException(status_code=400, detail="Prompt is empty.")
 
     try:
-        llm = ChatOllama(base_url=OLLAMA_BASE, model=req.model, temperature=0.7)
-        t0  = time.monotonic()
+        llm     = get_llm(req.model, temperature=0.7)
+        t0      = time.monotonic()
         response = await llm.ainvoke([
             SystemMessage(content=SYSTEM_PROMPT),
             HumanMessage(content=user_prompt),
         ])
         elapsed = int((time.monotonic() - t0) * 1000)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
     except Exception as exc:
         msg = str(exc)
         if "ECONNREFUSED" in msg or "Connection refused" in msg or "connect" in msg.lower():

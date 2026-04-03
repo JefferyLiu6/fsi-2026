@@ -15,13 +15,39 @@ from typing import Any, Literal
 
 from fastapi import HTTPException
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from langchain_ollama import ChatOllama
 from pydantic import BaseModel
 
-from config import OLLAMA_BASE
+from providers import get_llm
 from tutor.schemas import TutorState
 
 _VALID_ROUTES = frozenset({"hint", "socratic", "explain", "clarify", "ready_check"})
+
+
+# ── Feedback prompt ───────────────────────────────────────────────────────────
+
+_FEEDBACK_PROMPT = """\
+You are a LinguaFlow language drill feedback analyzer. Diagnose the mistake — never state the answer.
+
+For CORRECT answers:
+- Affirm in one sentence. Optionally note one thing they did well (grammar, word choice, etc.).
+
+For INCORRECT or TIMEOUT answers:
+- Identify the specific error category: wrong conjugation, wrong tense, missing article,
+  wrong word order, incorrect gender agreement, wrong vocabulary choice, etc.
+- Explain WHY it is wrong — the rule or pattern that was violated.
+- Do NOT write out the correct answer or the expected answer.
+- Do NOT say "the correct form is ___" or "you should have written ___".
+- The learner must figure out the correct form themselves using your analysis.
+- 2–3 sentences max.
+
+For SKIPPED answers:
+- Note the error category and rule the item was testing. No answer.
+
+Rules:
+- Never reveal the expected answer, even partially.
+- Never say "almost right" without naming the specific error.
+- Do not repeat the drill prompt back.
+- Plain text only, no markdown."""
 
 
 # ── Router ────────────────────────────────────────────────────────────────────
@@ -64,7 +90,7 @@ async def router_node(state: TutorState) -> dict[str, Any]:
         f"Learner's message: {last_user!r}"
     )
 
-    llm   = ChatOllama(base_url=OLLAMA_BASE, model=model_name, temperature=0.05)
+    llm   = get_llm(model_name, temperature=0.05)
     route = "socratic"
 
     # -- attempt structured output --
@@ -107,7 +133,7 @@ def route_after_router(state: TutorState) -> str:
 
 _COACH_PROMPTS: dict[str, str] = {
     "hint": """\
-You are a supportive FSI-style language drill coach giving a hint.
+You are a supportive LinguaFlow-style language drill coach giving a hint.
 
 Policy:
 - Give ONE concise hint that moves the learner toward the answer without giving it away.
@@ -119,7 +145,7 @@ Policy:
 - Be warm, brief, and encouraging (1–3 sentences).""",
 
     "socratic": """\
-You are a supportive FSI-style language drill coach using Socratic questioning.
+You are a supportive LinguaFlow-style language drill coach using Socratic questioning.
 
 Policy:
 - Ask ONE focused question that leads the learner to discover the answer themselves.
@@ -129,7 +155,7 @@ Policy:
 - Be warm and concise (1–3 sentences).""",
 
     "explain": """\
-You are a supportive FSI-style language drill coach explaining language structure.
+You are a supportive LinguaFlow-style language drill coach explaining language structure.
 
 Policy:
 - Explain the relevant grammar rule, verb conjugation, phrase pattern, or concept.
@@ -138,7 +164,7 @@ Policy:
 - Be accurate, clear, and focused (2–4 sentences).""",
 
     "clarify": """\
-You are a supportive FSI-style language drill coach clarifying drill instructions.
+You are a supportive LinguaFlow-style language drill coach clarifying drill instructions.
 
 Policy:
 - Explain clearly what the drill item is asking the learner to produce.
@@ -146,7 +172,7 @@ Policy:
 - Be simple and direct (1–3 sentences).""",
 
     "ready_check": """\
-You are a supportive FSI-style language drill coach doing a readiness check.
+You are a supportive LinguaFlow-style language drill coach doing a readiness check.
 
 Policy:
 - Acknowledge the learner's readiness warmly.
@@ -197,7 +223,7 @@ async def _run_specialist(state: TutorState, route: str) -> dict[str, Any]:
         else:
             lc_msgs.append(AIMessage(content=m["content"]))
 
-    llm = ChatOllama(base_url=OLLAMA_BASE, model=model_name, temperature=0.7)
+    llm = get_llm(model_name, temperature=0.7)
     try:
         resp = await llm.ainvoke(lc_msgs)
         text = resp.content if isinstance(resp.content, str) else str(resp.content)
@@ -240,3 +266,69 @@ async def ready_check_node(state: TutorState) -> dict[str, Any]:
 async def coach_node(state: TutorState) -> dict[str, Any]:
     """Delegates by state['route'] — useful for tests; graph uses specialist nodes."""
     return await _run_specialist(state, state.get("route", "socratic"))
+
+
+# ── Streaming generators ──────────────────────────────────────────────────────
+
+
+async def stream_feedback(state: dict[str, Any]):
+    """Yield text tokens for feedback mode (no routing, no chat history)."""
+    item = state["current_item"]
+    ctx  = state["session_context"]
+
+    ctx_block = (
+        f"\n\n--- Drill Context ---\n"
+        f"Language: {ctx['language']} | Type: {item['type']}\n"
+        f"Instruction: {item['instruction']}\n"
+        f"Prompt: {item['prompt']}\n"
+        f"Learner's answer: {item['user_answer']!r}\n"
+        f"Result: {item['feedback']}\n"
+    )
+
+    llm = get_llm(state["model_name"], temperature=0.3)
+    async for chunk in llm.astream([SystemMessage(content=_FEEDBACK_PROMPT + ctx_block)]):
+        if hasattr(chunk, "content") and chunk.content:
+            yield str(chunk.content)
+
+
+async def stream_specialist(state: dict[str, Any], route: str):
+    """Yield text tokens for a specialist coach node."""
+    if route not in _VALID_ROUTES:
+        route = "socratic"
+
+    hint_level  = state.get("hint_level", 0)
+    ctx         = state["session_context"]
+    item        = state["current_item"]
+    messages    = state["messages"]
+    constraints = state["constraints"]
+
+    max_hint  = constraints.get("max_hint_level", 3)
+    new_hint  = hint_level + 1 if route == "hint" else hint_level
+    reveal_ok = new_hint >= max_hint
+
+    base_prompt = _COACH_PROMPTS.get(route, _COACH_PROMPTS["socratic"])
+    ctx_block = (
+        f"\n\n--- Session Context ---\n"
+        f"Language: {ctx['language']} | Drill type: {item['type']} | "
+        f"Item {ctx['item_index'] + 1} of {ctx['items_total']}\n"
+        f"Instruction: {item['instruction']}\n"
+        f"Prompt shown to learner: {item['prompt']}\n"
+        f"Learner's answer: {item['user_answer']!r}\n"
+        f"App feedback: {item['feedback']} (authoritative — do not contradict)\n"
+        f"Hint level: {new_hint}/{max_hint}"
+        + (" — you may now reveal the full answer\n" if reveal_ok else "\n")
+    )
+    if route in ("hint", "explain"):
+        ctx_block += f"Expected answer: {item['expected_answer']}\n"
+
+    lc_msgs: list[Any] = [SystemMessage(content=base_prompt + ctx_block)]
+    for m in messages[-10:]:
+        if m["role"] == "user":
+            lc_msgs.append(HumanMessage(content=m["content"]))
+        else:
+            lc_msgs.append(AIMessage(content=m["content"]))
+
+    llm = get_llm(state["model_name"], temperature=0.7)
+    async for chunk in llm.astream(lc_msgs):
+        if hasattr(chunk, "content") and chunk.content:
+            yield str(chunk.content)

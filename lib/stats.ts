@@ -1,88 +1,61 @@
 import type { SessionRecord, DrillItem, Language } from './drills'
 
+// ── localStorage helpers ──────────────────────────────────────────
+const SESSIONS_KEY = 'linguaflow_demo_sessions'
+const LANGUAGE_KEY = 'linguaflow_demo_language'
+const CUSTOM_KEY   = 'linguaflow_demo_custom_list'
+
+function getStorage<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback
+  try { return JSON.parse(localStorage.getItem(key) ?? JSON.stringify(fallback)) } catch { return fallback }
+}
+
+function setStorage<T>(key: string, value: T): void {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* ignore */ }
+}
+
 // ── Sessions ─────────────────────────────────────────────────────
-const PENDING_KEY = 'fsi_pending_sessions'
-
-function getPending(): SessionRecord[] {
-  try { return JSON.parse(sessionStorage.getItem(PENDING_KEY) ?? '[]') } catch { return [] }
-}
-function setPending(list: SessionRecord[]) {
-  try { sessionStorage.setItem(PENDING_KEY, JSON.stringify(list)) } catch { /* ignore */ }
-}
-
 export async function loadSessions(): Promise<SessionRecord[]> {
-  try {
-    const res = await fetch('/api/sessions')
-    if (!res.ok) return []
-    const apiSessions: SessionRecord[] = await res.json()
-    // Merge any optimistic sessions not yet confirmed by the API
-    const apiIds   = new Set(apiSessions.map(s => s.id))
-    const pending  = getPending().filter(s => !apiIds.has(s.id))
-    setPending(pending) // prune confirmed entries
-    return pending.length > 0 ? [...pending, ...apiSessions] : apiSessions
-  } catch { return [] }
+  return getStorage<SessionRecord[]>(SESSIONS_KEY, [])
 }
 
 export function saveSession(session: SessionRecord): void {
-  // 1. Write optimistically to sessionStorage — dashboard can use it immediately
-  setPending([session, ...getPending()])
-  // 2. Persist to the server in the background
-  fetch('/api/sessions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(session),
-  }).then(r => {
-    if (r.ok) {
-      // Prune once confirmed
-      setPending(getPending().filter(s => s.id !== session.id))
-    }
-  }).catch(() => { /* silent fail */ })
+  const existing = getStorage<SessionRecord[]>(SESSIONS_KEY, [])
+  setStorage(SESSIONS_KEY, [session, ...existing])
 }
 
 // ── Language ─────────────────────────────────────────────────────
 export async function loadLanguage(): Promise<Language> {
-  try {
-    const res = await fetch('/api/language')
-    if (!res.ok) return 'es'
-    const data = await res.json()
-    return (data.language as Language) ?? 'es'
-  } catch { return 'es' }
+  return getStorage<Language>(LANGUAGE_KEY, 'es')
 }
 
 export async function saveLanguage(lang: Language): Promise<void> {
-  try {
-    await fetch('/api/language', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ language: lang }),
-    })
-  } catch { /* silent fail */ }
+  setStorage(LANGUAGE_KEY, lang)
 }
 
 // ── Custom List ───────────────────────────────────────────────────
 export async function loadCustomList(): Promise<DrillItem[]> {
-  try {
-    const res = await fetch('/api/custom-list')
-    if (!res.ok) return []
-    const data = await res.json()
-    return data.items ?? []
-  } catch { return [] }
+  return getStorage<DrillItem[]>(CUSTOM_KEY, [])
 }
 
 export async function saveCustomList(items: DrillItem[]): Promise<void> {
-  try {
-    await fetch('/api/custom-list', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items }),
-    })
-  } catch { /* silent fail */ }
+  setStorage(CUSTOM_KEY, items)
 }
 
 export async function clearCustomList(): Promise<void> {
+  setStorage(CUSTOM_KEY, [])
+}
+
+export function resetDemoLocalState(): void {
+  if (typeof window === 'undefined') return
   try {
-    await fetch('/api/custom-list', { method: 'DELETE' })
-  } catch { /* silent fail */ }
+    localStorage.removeItem(SESSIONS_KEY)
+    localStorage.removeItem(LANGUAGE_KEY)
+    localStorage.removeItem(CUSTOM_KEY)
+  } catch {
+    // Ignore storage errors in demo mode reset.
+  }
 }
 
 // ── Stats (pure computation, no I/O) ─────────────────────────────

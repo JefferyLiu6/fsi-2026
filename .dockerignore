@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+*.db
+agent
+__tests__
+docs
+.env*
+!.env.local
+pnpm-lock.yaml
+package-lock.json

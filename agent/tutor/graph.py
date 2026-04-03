@@ -6,10 +6,12 @@ Phase 2 graph:  router_node → conditional edges → specialist nodes → END
 """
 from __future__ import annotations
 
+import json
 import time
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from langgraph.graph import END, StateGraph
 
 from tutor.nodes import (
@@ -20,6 +22,8 @@ from tutor.nodes import (
     route_after_router,
     router_node,
     socratic_node,
+    stream_feedback,
+    stream_specialist,
 )
 from tutor.schemas import (
     TutorRequest,
@@ -144,4 +148,74 @@ async def tutor_endpoint(req: TutorRequest):
         structured=structured,
         model=req.model,
         elapsed_ms=elapsed,
+    )
+
+
+# ── Streaming endpoint ────────────────────────────────────────────────────────
+
+
+def _build_state(req: TutorRequest) -> TutorState:
+    return {
+        "model_name":        req.model,
+        "session_context":   req.session_context.model_dump(),
+        "current_item":      req.current_item.model_dump(),
+        "recent_items":      [r.model_dump() for r in req.recent_items],
+        "messages":          [m.model_dump() for m in req.messages],
+        "constraints":       req.constraints.model_dump(),
+        "route":             "socratic",
+        "hint_level":        req.constraints.current_hint_level,
+        "assistant_message": "",
+        "structured_data":   {},
+    }
+
+
+@router.post("/tutor/stream")
+async def tutor_stream_endpoint(req: TutorRequest):
+    state = _build_state(req)
+
+    async def event_stream():
+        try:
+            if req.mode == "feedback":
+                async for token in stream_feedback(state):
+                    yield f"data: {json.dumps({'token': token})}\n\n"
+                yield f"data: {json.dumps({'done': True})}\n\n"
+
+            else:
+                # Validate messages
+                if not req.messages or req.messages[-1].role != "user":
+                    yield f"data: {json.dumps({'error': 'Last message must be from user'})}\n\n"
+                    return
+
+                # Turn cap
+                user_turns = sum(1 for m in req.messages if m.role == "user")
+                if user_turns > req.constraints.max_coach_turns:
+                    cap_msg = (
+                        f"We've reached the coaching turn limit "
+                        f"({req.constraints.max_coach_turns} turns). "
+                        "Move on to the next item to keep your momentum!"
+                    )
+                    yield f"data: {json.dumps({'token': cap_msg})}\n\n"
+                    yield f"data: {json.dumps({'done': True})}\n\n"
+                    return
+
+                # Route (non-streaming)
+                route_result = await router_node(state)
+                state.update(route_result)
+                route = route_result.get("route", "socratic")
+
+                async for token in stream_specialist(state, route):
+                    yield f"data: {json.dumps({'token': token})}\n\n"
+
+                new_hint = state.get("hint_level", 0) + (1 if route == "hint" else 0)
+                yield f"data: {json.dumps({'done': True, 'route': route, 'hint_level': new_hint})}\n\n"
+
+        except HTTPException as exc:
+            yield f"data: {json.dumps({'error': exc.detail})}\n\n"
+        except Exception as exc:
+            yield f"data: {json.dumps({'error': str(exc)})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

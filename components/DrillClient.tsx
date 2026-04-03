@@ -109,6 +109,7 @@ export default function DrillClient({ initialType = 'sentence', initialCount = 1
   const [genGrammar,    setGenGrammar]    = useState('mixed')
   const [genDrillType,  setGenDrillType]  = useState('translation')
   const [genPrompt,     setGenPrompt]     = useState('')
+  const [aiModel,       setAiModel]       = useState('openai/gpt-4o-mini')
   const [isGenerating,  setIsGenerating]  = useState(false)
   const [genError,      setGenError]      = useState('')
   const [genPreview,    setGenPreview]    = useState<DrillItem[]>([])
@@ -130,6 +131,7 @@ export default function DrillClient({ initialType = 'sentence', initialCount = 1
           drillType:  genDrillType,
           language:   LANGUAGES[language].name,
           count,
+          model:      aiModel,
         }),
       })
       const data = await res.json()
@@ -139,7 +141,7 @@ export default function DrillClient({ initialType = 'sentence', initialCount = 1
       }
       setGenPreview(data.drills)
     } catch {
-      setGenError('Network error — is Ollama running?')
+      setGenError('Network error — is the AI agent running?')
     } finally {
       setIsGenerating(false)
     }
@@ -385,7 +387,7 @@ export default function DrillClient({ initialType = 'sentence', initialCount = 1
   // ── Config screen ─────────────────────────────────────────────
   if (!started) {
     return (
-      <div className="bg-stone-50" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 32px' }}>
+      <div className="bg-stone-50 mob-config-pad" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 32px' }}>
         <div style={{ maxWidth: 480, width: '100%' }}>
 
           {/* Header */}
@@ -675,10 +677,41 @@ export default function DrillClient({ initialType = 'sentence', initialCount = 1
                 {/* ── Generate tab ────────────────────────────────── */}
                 {customTab === 'generate' && (
                   <>
-                    {/* Ollama status */}
-                    <div className="flex items-center gap-1.5 font-mono text-xs text-gray-500 mb-4">
-                      <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shrink-0" />
-                      Ollama (localhost:11434)
+                    {/* Model picker */}
+                    <div className="mb-4">
+                      <label className="block text-[10px] font-mono uppercase tracking-wider text-gray-400 mb-1">
+                        AI Model
+                      </label>
+                      <select
+                        value={aiModel}
+                        onChange={e => setAiModel(e.target.value)}
+                        className="border border-gray-200 rounded-md text-sm p-2 w-full font-sans bg-white focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-700"
+                      >
+                        <optgroup label="OpenAI">
+                          <option value="openai/gpt-4o-mini">GPT-4o mini</option>
+                          <option value="openai/gpt-4o">GPT-4o</option>
+                          <option value="openai/o4-mini">o4-mini</option>
+                        </optgroup>
+                        <optgroup label="Anthropic">
+                          <option value="anthropic/claude-3-5-haiku-20241022">Claude 3.5 Haiku</option>
+                          <option value="anthropic/claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                          <option value="anthropic/claude-opus-4-5">Claude Opus 4.5</option>
+                        </optgroup>
+                        <optgroup label="Google">
+                          <option value="google/gemini-2.0-flash">Gemini 2.0 Flash</option>
+                          <option value="google/gemini-1.5-pro">Gemini 1.5 Pro</option>
+                        </optgroup>
+                        <optgroup label="Groq (fast free tier)">
+                          <option value="groq/llama-3.1-70b-versatile">Llama 3.1 70B</option>
+                          <option value="groq/mixtral-8x7b-32768">Mixtral 8x7B</option>
+                        </optgroup>
+                        <optgroup label="Ollama (local)">
+                          <option value="ollama/llama3.1">llama3.1</option>
+                          <option value="ollama/llama3.2">llama3.2</option>
+                          <option value="ollama/mistral">mistral</option>
+                          <option value="ollama/qwen2.5">qwen2.5</option>
+                        </optgroup>
+                      </select>
                     </div>
 
                     {/* Guided / Raw toggle */}
@@ -736,7 +769,7 @@ export default function DrillClient({ initialType = 'sentence', initialCount = 1
                             ],
                           },
                           {
-                            label: 'FSI Drill Type',
+                            label: 'Drill Type',
                             value: genDrillType,
                             set: setGenDrillType,
                             options: [
@@ -946,6 +979,7 @@ export default function DrillClient({ initialType = 'sentence', initialCount = 1
         </div>
         {/* Info bar */}
         <div
+          className="mob-status-pad"
           style={{
             maxWidth: 1200,
             margin: '0 auto',
@@ -975,6 +1009,7 @@ export default function DrillClient({ initialType = 'sentence', initialCount = 1
 
       {/* Main drill area */}
       <div
+        className="mob-drill-pad"
         style={{
           flex: 1,
           display: 'flex',
@@ -1106,7 +1141,7 @@ export default function DrillClient({ initialType = 'sentence', initialCount = 1
         </div>
 
         {/* Submit row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
+        <div className="mob-btn-row" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
           <button
             onClick={handleSubmit}
             disabled={submitted}
@@ -1138,6 +1173,7 @@ export default function DrillClient({ initialType = 'sentence', initialCount = 1
             Skip
           </button>
           <span
+            className="mob-hidden"
             style={{
               marginLeft: 'auto',
               fontFamily: 'var(--font-jetbrains), monospace',
@@ -1209,6 +1245,7 @@ export default function DrillClient({ initialType = 'sentence', initialCount = 1
             results={results}
             items={items}
             itemIndex={index}
+            model={aiModel}
           />
         )}
 
