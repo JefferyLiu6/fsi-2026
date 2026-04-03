@@ -59,7 +59,7 @@ flowchart LR
     FASTAPI[FastAPI Service :8000]
     GEN[Generation Endpoint /generate]
     TUTOR_API[Tutor Endpoint /tutor]
-    TUTOR_STREAM[Tutor Stream /tutor/stream (SSE)]
+    TUTOR_STREAM["Tutor Stream /tutor/stream (SSE)"]
     subgraph tutor [Tutor Graph — LangGraph]
       ROUTER[Router Node]
       HINT[Hint]
@@ -265,7 +265,7 @@ flowchart TD
   CAP -->|yes| CAPMSG[stream cap message]
   CAPMSG --> DONE2[done=true]
   CAP -->|no| R2[router_node\nnon-stream classification]
-  R2 --> SPEC[stream_specialist(route)\nchunked LLM output]
+  R2 --> SPEC["stream_specialist(route)\nchunked LLM output"]
   SPEC --> SSE2[SSE tokens\ndata: token]
   SSE2 --> META[done=true + route + hint_level]
 ```
