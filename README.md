@@ -1,4 +1,4 @@
-# FSI-2026 — AI-Assisted Language Drill Platform
+# LinguaFlow — AI Language Coaching System
 
 [![CI](https://github.com/JefferyLiu6/fsi-2026/actions/workflows/ci.yml/badge.svg)](https://github.com/JefferyLiu6/fsi-2026/actions/workflows/ci.yml)
 [![Next.js](https://img.shields.io/badge/next.js-16-black?logo=next.js)](https://nextjs.org/)
@@ -11,32 +11,15 @@
 
 > **Live demo:** _coming soon_ · [Walkthrough video](#) _(placeholder)_
 
-A full-stack language learning platform that combines timed FSI-style drills with an AI tutor and optional AI drill generation.
+A full-stack language learning platform that combines timed drills, route-aware AI coaching, and persistent learner progress.
+It is built as a product-style system, not a chatbot demo, with explicit architecture boundaries, guardrails, and reliability checks.
 
-The project is designed to demonstrate production-oriented software engineering and applied AI integration:
-- Strong end-to-end architecture (`Next.js` + `Prisma` + `FastAPI` + `LangGraph`)
-- Authenticated multi-user data flows and session persistence
-- Typed API contracts between TypeScript and Python services
-- Automated quality checks via tests and CI
+## Key Highlights
 
-## Why This Project Is Portfolio-Grade
-
-- **Real product scope**: auth, persistence, dashboard analytics, content library, and coaching workflows.
-- **AI engineering depth**: deterministic request/response contracts, route-aware coaching graph, guardrails, and error mapping.
-- **Engineering discipline**: test suite plus CI checks for lint, type safety, tests, build, and Python syntax validation.
-
-## Feature Set
-
-- **Core drills**: translation, substitution, transformation
-- **Languages**: Spanish, French, German, Chinese, Japanese, Korean, English
-- **User flows**:
-  - Register/login with JWT cookie session
-  - Run timed drills and receive immediate feedback
-  - Track performance on a personal dashboard
-  - Browse full drill library by language/topic/category
-- **Optional AI capabilities**:
-  - Generate custom drills via local Ollama model
-  - Ask AI tutor for hints, explanations, clarifications, and readiness checks
+- **Product scope**: timed drills, custom lists, dashboard analytics, and coaching workflows.
+- **AI architecture**: FastAPI agent + LangGraph routing + deterministic JSON handling.
+- **System design**: typed Next.js <-> Python API bridge with clear service boundaries.
+- **Engineering quality**: CI checks for lint, type safety, tests, build, and Python syntax.
 
 ## Screenshots
 
@@ -54,6 +37,9 @@ The project is designed to demonstrate production-oriented software engineering 
 
 ## System Architecture
 
+LinguaFlow is split into three layers: a Next.js app for UI and authenticated web routes, a Prisma-backed persistence layer for user/session data, and a FastAPI AI service for drill generation and tutoring.
+The web layer owns auth and API contracts, while the agent layer owns model interaction, routing, and tutor/generation behavior.
+
 ```mermaid
 flowchart LR
   subgraph browser [Browser]
@@ -69,9 +55,11 @@ flowchart LR
     DB[(SQLite via Prisma)]
   end
 
-  subgraph agent [Python Agent — Optional]
+  subgraph agent [LinguaFlow Agent — Optional]
     FASTAPI[FastAPI Service :8000]
     GEN[Generation Endpoint /generate]
+    TUTOR_API[Tutor Endpoint /tutor]
+    TUTOR_STREAM[Tutor Stream /tutor/stream (SSE)]
     subgraph tutor [Tutor Graph — LangGraph]
       ROUTER[Router Node]
       HINT[Hint]
@@ -80,7 +68,7 @@ flowchart LR
       CLARIFY[Clarify]
       READY[Ready Check]
     end
-    OLLAMA[Ollama :11434]
+    PROVIDERS[Provider-backed LLMs\nOpenAI · Anthropic · Google · Groq · Ollama]
   end
 
   UI --> API
@@ -88,20 +76,68 @@ flowchart LR
   API --> DB
   API -->|/api/generate-drills| FASTAPI
   API -->|/api/tutor| FASTAPI
+  API -->|/api/tutor/stream| FASTAPI
   FASTAPI --> GEN
+  FASTAPI --> TUTOR_API
+  FASTAPI --> TUTOR_STREAM
   FASTAPI --> ROUTER
   ROUTER --> HINT
   ROUTER --> SOCRATIC
   ROUTER --> EXPLAIN
   ROUTER --> CLARIFY
   ROUTER --> READY
-  GEN --> OLLAMA
-  HINT --> OLLAMA
-  SOCRATIC --> OLLAMA
-  EXPLAIN --> OLLAMA
-  CLARIFY --> OLLAMA
-  READY --> OLLAMA
+  GEN --> PROVIDERS
+  HINT --> PROVIDERS
+  SOCRATIC --> PROVIDERS
+  EXPLAIN --> PROVIDERS
+  CLARIFY --> PROVIDERS
+  READY --> PROVIDERS
 ```
+
+## Iteration History
+
+### v1 — Timing + Feedback Loop First
+- **What changed:** Implemented the strict core loop (20s timer, submit/skip/timeout paths, immediate feedback, session scoring).
+- **Why:** Validate learning mechanics first before adding architecture or AI complexity.
+- **Impact:** Confirmed UX viability and exposed the next bottleneck: non-persistent local state.
+
+### v2 — Data Contracts + Persistence Boundary
+- **What changed:** Added typed Next.js API routes plus Prisma models (`DrillSession`, `UserSettings`, `CustomList`).
+- **Why:** Decouple UI rendering from data logic and establish stable request/response contracts.
+- **Impact:** Deterministic persistence, cleaner component boundaries, and a foundation for multi-user flows.
+
+### v3 — Isolated AI Service for Generation
+- **What changed:** Introduced a separate FastAPI generation service with guided/raw modes, JSON extraction, and output filtering.
+- **Why:** Keep AI failures isolated from the web app and make model/provider iteration easier.
+- **Impact:** Safer AI integration; malformed model output is filtered before entering user sessions.
+
+### v4 — Tutor Control via LangGraph
+- **What changed:** Replaced one-shot tutoring with LangGraph routing (`hint`, `socratic`, `explain`, `clarify`, `ready_check`) and hint-level state.
+- **Why:** Make tutor behavior controllable and resilient under ambiguous learner messages.
+- **Impact:** More consistent coaching behavior through structured routing, JSON fallback, and safe defaults.
+
+### v5 — Reliability, Security, and Failure Handling
+- **What changed:** Added JWT cookie auth, protected data routes, turn caps, input validation, and clearer upstream error mapping.
+- **Why:** Reduce silent failure paths and harden multi-user behavior before broader usage.
+- **Impact:** More production-like reliability with clearer operational failure modes and stronger CI guarantees.
+
+### v6 — Streaming + Deployment Preparation (current)
+- **What changed:** Added `/tutor/stream` SSE, plus runtime metadata (`elapsed_ms`, `route`, `hint_level`) for observability.
+- **Why:** Improve perceived responsiveness and make runtime behavior measurable for tuning and ops.
+- **Impact:** End-to-end system is deployment-ready in architecture; once live, this phase will be labeled **Production Deployment**.
+
+## Product Features
+
+- **Core drills**: translation, substitution, transformation
+- **Languages**: Spanish, French, German, Chinese, Japanese, Korean, English
+- **User flows**:
+  - Register/login with JWT cookie session
+  - Run timed drills and receive immediate feedback
+  - Track performance on a personal dashboard
+  - Browse full drill library by language/topic/category
+- **Optional AI capabilities**:
+  - Generate custom drills via local Ollama model
+  - Ask AI tutor for hints, explanations, clarifications, and readiness checks
 
 ## Tech Stack
 
@@ -109,11 +145,46 @@ flowchart LR
 |---|---|
 | Frontend | Next.js 16, React 19, Tailwind CSS 4 |
 | Backend (Web) | Next.js Route Handlers, TypeScript |
-| Backend (AI) | FastAPI, LangGraph, LangChain Ollama |
+| Backend (AI) | FastAPI, LangGraph, OpenAI / Anthropic / Google / Groq / Ollama support |
 | Data | Prisma 7, SQLite (`@prisma/adapter-libsql`) |
 | Auth | `jose` (HS256 JWT in httpOnly cookie), `bcryptjs` |
 | Testing | Vitest (unit + integration) |
 | CI | GitHub Actions (`lint`, `tsc`, `test`, `build`, Python `py_compile`) |
+
+## Production Profile
+
+For local development, LinguaFlow runs with SQLite and optional local Ollama inference.
+
+For deployment, the intended production profile is:
+- Next.js frontend/web API on Vercel
+- FastAPI agent on Render
+- Postgres via Prisma
+- Hosted LLM provider for reliable inference
+
+This keeps the local setup lightweight while preserving a clear migration path to an internet-facing production architecture.
+
+## Model Strategy
+
+- **Default model profile**: `openai/gpt-4o-mini` is the baseline for tutor and generation requests because it is cost-efficient, low-latency, and strong enough for short coaching turns and drill JSON output.
+- **Provider abstraction by design**: model IDs use `provider/model` format, so the same request path can run on OpenAI, Anthropic, Google, Groq, or local Ollama without changing endpoint contracts.
+- **Structured outputs reduce hallucinations**: the tutor router attempts structured output first, then falls back to JSON parsing, improving route reliability for `hint`, `socratic`, `explain`, `clarify`, and `ready_check`.
+- **Deterministic parsing for generation**: drill generation enforces JSON-array extraction plus schema-like field filtering (`prompt`, `answer`, type constraints) before returning results.
+- **Multi-model ready for deployment tuning**: the architecture supports switching models per environment (cost, latency, quality) while keeping the frontend/API payload shape stable.
+
+## Evaluation
+
+Benchmark snapshot (local run, 2026-04-03, model: `openai/gpt-4o-mini`):
+
+- **Tutor routing validity**: 15/15 prompts returned a valid route (`hint`, `socratic`, `explain`, `clarify`, `ready_check`) via `/tutor/stream`.
+- **Average tutor latency**: 1.97s end-to-end over 15 streaming tutor requests.
+- **Generation validity after filtering**: 12/12 generation requests returned non-empty filtered drill sets with required `prompt` + `answer` fields.
+- **Average generation latency**: 6.63s over 12 guided generation requests (96 valid drills total).
+- **Safety behavior**: invalid/ambiguous outputs remain bounded by route fallbacks (`socratic` default), field filtering, and explicit 4xx/5xx error mapping.
+
+Method notes:
+- Tutor benchmark used one-turn coaching prompts and validated the final SSE `route` event.
+- Generation benchmark used guided mode across multiple topic/difficulty/grammar combinations.
+- These are lightweight operational checks (not a formal offline eval suite), intended to show real runtime behavior on the current stack.
 
 ## Engineering Highlights
 
@@ -128,7 +199,7 @@ The tutor service uses a router-plus-specialists graph:
 - guardrails enforce turn limits and stable fallback behavior
 
 ### 3) Security and session model
-- Login issues a signed JWT (`fsi_auth`) in an `httpOnly` cookie with `SameSite=Lax`
+- Login issues a signed JWT in an `httpOnly` cookie with `SameSite=Lax`
 - Protected app routes are enforced by `proxy.ts`
 - Data routes require authenticated session; AI routes are restricted in production mode
 
@@ -146,30 +217,30 @@ The Python agent exposes two independent sub-systems on the same FastAPI service
 ```mermaid
 flowchart TD
   REQ[POST /generate\nGenerateRequest] --> MODE{mode?}
-  MODE -->|guided| BUILD[Build prompt\ntopic · difficulty · grammar · count]
+  MODE -->|guided| BUILD[Build guided prompt\ntopic · difficulty · grammar · count]
   MODE -->|raw| RAW[Use raw_prompt as-is]
-  BUILD --> LLM[ChatOllama\nSingle-pass inference]
+  BUILD --> LLM[Provider model\nsingle-pass inference]
   RAW   --> LLM
-  LLM   --> EXTRACT[JSON extraction\nStrip markdown fences · parse array]
+  LLM   --> EXTRACT[JSON extraction\nstrip fences · parse array]
   EXTRACT --> FILTER[Filter valid drills\nprompt + answer required]
   FILTER --> RES[GenerateResponse\ndrills · model · elapsed_ms]
 ```
 
-### Tutor Graph (LangGraph)
+### Tutor Endpoint (non-streaming `/tutor`)
 
 ```mermaid
 flowchart TD
   REQ2[POST /tutor\nTutorRequest] --> GUARD{Turn cap\nexceeded?}
-  GUARD -->|yes| EARLY[Return turn-limit\nmessage — no LLM call]
-  GUARD -->|no| STATE[Flatten to TutorState\nand invoke graph]
+  GUARD -->|yes| EARLY[Early return\nNo model call]
+  GUARD -->|no| STATE[Build TutorState\ninvoke LangGraph]
 
-  STATE --> ROUTER[Router Node\nClassifies learner intent\nvia structured output → JSON fallback]
+  STATE --> ROUTER[Router node\nIntent classification\nstructured output + JSON fallback]
 
-  ROUTER -->|hint| HINT[Hint Node\nProgressive reveal up to max_hint_level]
-  ROUTER -->|socratic| SOC[Socratic Node\nLeading question — default route]
-  ROUTER -->|explain| EXP[Explain Node\nGrammar rule · verb pattern · concept]
-  ROUTER -->|clarify| CLA[Clarify Node\nDrill format · expected output]
-  ROUTER -->|ready_check| RDY[Ready Check Node\nAcknowledge + single takeaway]
+  ROUTER -->|hint| HINT[Hint node\nProgressive reveal]
+  ROUTER -->|socratic| SOC[Socratic node\nGuided question]
+  ROUTER -->|explain| EXP[Explain node\nGrammar/pattern focus]
+  ROUTER -->|clarify| CLA[Clarify node\nInstruction disambiguation]
+  ROUTER -->|ready_check| RDY[Ready-check node\nShort takeaway + continue]
 
   HINT --> OUT[Build TutorResponse\nassistant_message · structured · elapsed_ms]
   SOC  --> OUT
@@ -178,11 +249,33 @@ flowchart TD
   RDY  --> OUT
 ```
 
+### Tutor Streaming Endpoint (`/tutor/stream`)
+
+```mermaid
+flowchart TD
+  SREQ[POST /tutor/stream\nTutorRequest] --> MODE{mode?}
+
+  MODE -->|feedback| FEED[stream_feedback\nsingle prompt stream]
+  FEED --> SSE1[SSE tokens\ndata: token]
+  SSE1 --> DONE1[done=true]
+
+  MODE -->|tutor| VALID{messages valid\nlast role=user?}
+  VALID -->|no| E1[SSE error event]
+  VALID -->|yes| CAP{turn cap\nexceeded?}
+  CAP -->|yes| CAPMSG[stream cap message]
+  CAPMSG --> DONE2[done=true]
+  CAP -->|no| R2[router_node\nnon-stream classification]
+  R2 --> SPEC[stream_specialist(route)\nchunked LLM output]
+  SPEC --> SSE2[SSE tokens\ndata: token]
+  SSE2 --> META[done=true + route + hint_level]
+```
+
 **Key design decisions:**
 - **Guardrail before the graph** — turn cap is enforced in the endpoint, not inside a node, so the LLM is never called unnecessarily
 - **Router uses structured output with JSON fallback** — tolerates models that ignore tool-call format
 - **Specialist nodes share a single `_run_specialist` helper** — prompting policy is centralized; LangGraph conditional edges select the node
 - **`hint_level` increments only on the hint route** — other routes leave it unchanged, preserving progressive-reveal state across turns
+- **Streaming path reuses router + specialist policies** — `/tutor/stream` keeps routing behavior aligned while delivering incremental SSE tokens
 
 ## API Surface (Web Layer)
 
@@ -197,6 +290,7 @@ flowchart TD
 | GET/PUT | `/api/language` | Load/save preferred language | Yes |
 | POST | `/api/generate-drills` | Proxy to Python generation endpoint | Dev open / Prod guarded |
 | POST | `/api/tutor` | Proxy to Python tutor endpoint | Dev open / Prod guarded |
+| POST | `/api/tutor/stream` | Proxy to Python SSE tutor stream endpoint | Dev open / Prod guarded |
 
 ## Data Model
 
@@ -219,7 +313,7 @@ SQLite is used for local-first simplicity; migration path to Postgres is straigh
 ### 1) Install and run the web app
 
 ```bash
-cd fsi-2026
+cd fsi-2026-demo
 pnpm install
 npx prisma generate
 npx prisma db push
@@ -240,7 +334,7 @@ ollama pull llama3.1
 Terminal B:
 
 ```bash
-cd fsi-2026/agent
+cd fsi-2026-demo/agent
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -291,7 +385,7 @@ Create `.env.local` from `.env.example`.
 - Add rate limiting and auth hardening around AI-heavy routes for internet-facing deployments
 - For multi-instance deployments, migrate from SQLite to Postgres
 
-## Known Limitations
+## Current Limitations
 
 - AI features depend on local Ollama availability unless replaced with hosted inference
 - SQLite is optimized for local/single-node usage

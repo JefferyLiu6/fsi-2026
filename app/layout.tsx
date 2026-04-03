@@ -26,7 +26,7 @@ const jetbrains = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'FSI — Precision Language Training',
+  title: 'LinguaFlow — AI Language Coaching System',
   description: 'Audio-lingual drills. Timed. Unforgiving. Accuracy-first.',
 }
 

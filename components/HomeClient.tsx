@@ -173,7 +173,7 @@ export default function HomeClient() {
                 }}
               >
                 Translation, substitution, and transformation drills
-                based on the FSI audio-lingual method. Twenty-second timers.
+                based on the audio-lingual method. Twenty-second timers.
                 Errors surfaced immediately. No partial credit.
               </p>
 

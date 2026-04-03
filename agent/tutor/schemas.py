@@ -1,6 +1,6 @@
 """
 Request / response Pydantic models and LangGraph TypedDict state
-for the FSI tutor agent.
+for the LinguaFlow tutor agent.
 """
 from __future__ import annotations
 
@@ -50,6 +50,7 @@ class TutorConstraints(BaseModel):
 
 
 class TutorRequest(BaseModel):
+    mode:            Literal["feedback", "tutor"] = "tutor"
     model:           str               = DEFAULT_MODEL
     session_context: SessionContext    = Field(default_factory=SessionContext)
     current_item:    CurrentItem
