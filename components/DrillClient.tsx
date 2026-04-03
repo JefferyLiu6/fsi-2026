@@ -387,7 +387,7 @@ export default function DrillClient({ initialType = 'sentence', initialCount = 1
   // ── Config screen ─────────────────────────────────────────────
   if (!started) {
     return (
-      <div className="bg-stone-50" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 32px' }}>
+      <div className="bg-stone-50 mob-config-pad" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 32px' }}>
         <div style={{ maxWidth: 480, width: '100%' }}>
 
           {/* Header */}
@@ -979,6 +979,7 @@ export default function DrillClient({ initialType = 'sentence', initialCount = 1
         </div>
         {/* Info bar */}
         <div
+          className="mob-status-pad"
           style={{
             maxWidth: 1200,
             margin: '0 auto',
@@ -1008,6 +1009,7 @@ export default function DrillClient({ initialType = 'sentence', initialCount = 1
 
       {/* Main drill area */}
       <div
+        className="mob-drill-pad"
         style={{
           flex: 1,
           display: 'flex',
@@ -1139,7 +1141,7 @@ export default function DrillClient({ initialType = 'sentence', initialCount = 1
         </div>
 
         {/* Submit row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
+        <div className="mob-btn-row" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
           <button
             onClick={handleSubmit}
             disabled={submitted}
@@ -1171,6 +1173,7 @@ export default function DrillClient({ initialType = 'sentence', initialCount = 1
             Skip
           </button>
           <span
+            className="mob-hidden"
             style={{
               marginLeft: 'auto',
               fontFamily: 'var(--font-jetbrains), monospace',

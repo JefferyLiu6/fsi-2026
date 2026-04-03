@@ -420,6 +420,7 @@ export default function DrillCoachPanel({
           {/* message list */}
           {(messages.length > 0 || coachLoading) && (
             <div
+              className="mob-coach-msg"
               style={{
                 maxHeight:      260,
                 overflowY:      'auto',

@@ -121,3 +121,26 @@ input:focus-visible { outline: none; }
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 2px; }
+
+/* ── Mobile responsive ───────────────────────────────────────── */
+@media (max-width: 640px) {
+  /* nav */
+  .mob-nav-pad   { padding-left: 14px !important; padding-right: 14px !important; }
+  .mob-hidden    { display: none !important; }
+
+  /* drill config screen */
+  .mob-config-pad { padding: 20px 14px 24px !important; }
+
+  /* drill status bar */
+  .mob-status-pad { padding-left: 12px !important; padding-right: 12px !important; gap: 16px !important; }
+
+  /* drill main area */
+  .mob-drill-pad  { padding: 20px 14px 20px !important; }
+
+  /* coach panel */
+  .mob-coach-msg  { max-height: 180px !important; }
+
+  /* bigger tap targets */
+  .mob-full       { width: 100% !important; }
+  .mob-btn-row    { flex-wrap: wrap !important; }
+}

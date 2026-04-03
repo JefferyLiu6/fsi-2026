@@ -51,6 +51,7 @@ export function Nav() {
       }}
     >
       <div
+        className="mob-nav-pad"
         style={{
           maxWidth: 1200,
           margin: '0 auto',
@@ -84,16 +85,17 @@ export function Nav() {
         {/* Nav links */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           {[
-            { href: '/drill', label: 'Train' },
-            { href: '/library', label: 'Library' },
-            { href: '/study', label: 'Study' },
-            { href: '/dashboard', label: 'Results' },
-          ].map(({ href, label }) => {
+            { href: '/drill',     label: 'Train',   mobileHide: false },
+            { href: '/library',   label: 'Library', mobileHide: true  },
+            { href: '/study',     label: 'Study',   mobileHide: true  },
+            { href: '/dashboard', label: 'Results', mobileHide: false },
+          ].map(({ href, label, mobileHide }) => {
             const active = path === href || path.startsWith(href + '/')
             return (
               <Link
                 key={href}
                 href={href}
+                className={mobileHide ? 'mob-hidden' : undefined}
                 style={{
                   fontFamily: 'var(--font-manrope), sans-serif',
                   fontWeight: 500,
@@ -135,6 +137,7 @@ export function Nav() {
                 {streak}
               </span>
               <span
+                className="mob-hidden"
                 style={{
                   fontFamily: 'var(--font-jetbrains), monospace',
                   fontSize: '0.5625rem',
@@ -169,6 +172,7 @@ export function Nav() {
               onClick={handleDemoReset}
               disabled={isResetting}
               title="Reset demo state"
+              className="mob-hidden"
               style={{
                 fontFamily: 'var(--font-jetbrains), monospace',
                 fontSize: '0.625rem',
