@@ -1,0 +1,26 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      # Uncomment to point at the agent service below
+      # - AGENT_URL=http://agent:8000
+    restart: unless-stopped
+
+  # ── Optional: Python AI agent (drill generation + tutor) ────────
+  # Requires Ollama running with a model pulled (e.g. llama3.1).
+  # Uncomment this service and the AGENT_URL env above to enable AI features.
+  #
+  # agent:
+  #   build:
+  #     context: ./agent
+  #     dockerfile: Dockerfile.agent
+  #   ports:
+  #     - "8000:8000"
+  #   environment:
+  #     - OLLAMA_BASE_URL=http://host.docker.internal:11434
+  #   restart: unless-stopped
