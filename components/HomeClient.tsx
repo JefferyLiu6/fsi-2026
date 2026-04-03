@@ -121,8 +121,9 @@ export default function HomeClient() {
 
       {/* ── Hero ─────────────────────────────────────────────────── */}
       <section className="bg-stone-50" style={{ borderBottom: '1px solid var(--border)' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '72px 32px 80px' }}>
+        <div className="mob-hero-pad" style={{ maxWidth: 1200, margin: '0 auto', padding: '72px 32px 80px' }}>
           <div
+            className="mob-hero-grid"
             style={{
               display: 'grid',
               gridTemplateColumns: '1fr 1fr',
@@ -214,7 +215,7 @@ export default function HomeClient() {
             </div>
 
             {/* Right: Drill preview */}
-            <div className="reveal reveal-3">
+            <div className="reveal reveal-3 mob-hidden">
               <DrillPreview />
             </div>
           </div>
@@ -223,7 +224,7 @@ export default function HomeClient() {
 
       {/* ── Language selector ─────────────────────────────────────── */}
       <section className="bg-white" style={{ borderBottom: '1px solid var(--border)' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '48px 32px' }}>
+        <div className="mob-section-pad" style={{ maxWidth: 1200, margin: '0 auto', padding: '48px 32px' }}>
           <div
             style={{
               fontFamily: 'var(--font-jetbrains), monospace',
@@ -236,7 +237,7 @@ export default function HomeClient() {
           >
             Target Language
           </div>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-4 gap-3 mob-lang-grid">
             {(Object.entries(LANGUAGES) as [Language, { name: string; native: string; flag: string }][]).map(([code, info]) => {
               const active = language === code
               return (
@@ -286,7 +287,7 @@ export default function HomeClient() {
 
       {/* ── Method ───────────────────────────────────────────────── */}
       <section className="bg-stone-50" style={{ borderBottom: '1px solid var(--border)' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '56px 32px' }}>
+        <div className="mob-section-pad" style={{ maxWidth: 1200, margin: '0 auto', padding: '56px 32px' }}>
           <div
             style={{
               fontFamily: 'var(--font-jetbrains), monospace',
@@ -299,7 +300,7 @@ export default function HomeClient() {
           >
             Training Protocol
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-4 mob-method-grid">
             {[
               {
                 type: 'Translation',
@@ -378,7 +379,7 @@ export default function HomeClient() {
       {/* ── Stats (if data exists) ────────────────────────────────── */}
       {stats && (
         <section className="bg-white" style={{ borderBottom: '1px solid var(--border)' }}>
-          <div style={{ maxWidth: 1200, margin: '0 auto', padding: '48px 32px' }}>
+          <div className="mob-section-pad" style={{ maxWidth: 1200, margin: '0 auto', padding: '48px 32px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
               <div
                 style={{
@@ -403,7 +404,7 @@ export default function HomeClient() {
                 Full report →
               </Link>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: 'var(--border)' }}>
+            <div className="mob-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: 'var(--border)' }}>
               {[
                 { value: String(stats.sessions), label: 'Sessions' },
                 { value: String(stats.total), label: 'Items attempted' },
@@ -447,8 +448,8 @@ export default function HomeClient() {
 
       {/* ── Bottom CTA ───────────────────────────────────────────── */}
       <section className="bg-stone-50" style={{ marginTop: 'auto' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '52px 32px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="mob-section-pad" style={{ maxWidth: 1200, margin: '0 auto', padding: '52px 32px' }}>
+          <div className="mob-cta-stack" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
               <div
                 style={{
